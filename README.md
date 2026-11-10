@@ -52,6 +52,30 @@ whose percentile is within `-8 / +7` of today's are shown for context only; they
 do not change the verdict. Thresholds: `>=80` high, `60-80` watch, `40-60`
 normal, `20-40` lower half, `<20` low.
 
+## The currency verdict
+
+The 1-year percentile alone is not the verdict. `calculate_recommendation`
+starts from the percentile score (1-year rank + 30-day position + price vs
+30-day average) and then adjusts it for the four known weaknesses of a
+percentile-only currency signal:
+
+* **Trend (one-way depreciation):** when the 6-month move is `>= +8%` and the
+  3-month move is `>= +5%`, a high percentile no longer says "don't buy yet"
+  for the buyer — it says "buy in parts (DCA)", because waiting for the old
+  price can mean missing the buy entirely while the kyat keeps depreciating.
+* **Dip confirmation (no news filter):** a "should buy" verdict from a dip is
+  downgraded to "wait and see" when the dip is a single sharp one-day drop
+  (today's sell price down `>= 2%` in one day and below its 30-day average for
+  at most 1 of the last 7 days). The app cannot tell a temporary dip
+  (crackdown / news) from a lasting fall, so it says so plainly and asks the
+  user to check the news and wait ~3 days.
+* **Spread / break-even:** the recommendation box shows today's spread and the
+  break-even buy rate — the price the sell-back rate must reach before any
+  profit. A small rise smaller than the spread is a loss.
+* **Mean reversion:** a 6-month percentile is shown next to the 1-year one,
+  and when the 1-year percentile is `>= 80%` with a 12-month rise of
+  `>= +10%`, a warning says the old mean price may never return.
+
 ## Deploy (Vercel)
 
 `vercel.json` builds `app.py` with `@vercel/python` and routes everything to it.

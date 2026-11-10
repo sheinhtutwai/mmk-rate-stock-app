@@ -410,6 +410,62 @@ def calculate_recommendation(asset):
         buyer_action = "ပုံမှန်ဈေး (လိုအပ်သလောက်သာ ဝယ်သင့်) ⚖️"
         buyer_color, buyer_bg = "#ef6c00", "#fff3e0"
 
+    # ---- ငွေဈေး အားနည်းချက် ၄ ခု ပြင်ဆင်ချက် ----
+    # (၁) လမ်းကြောင်း — ကျပ်ငွေ တန်ဖိုးကျတဲ့ဘက် တစ်ဖက်တည်း ဦးတည်နေချိန်မှာ
+    #     percentile မြင့်နေရုံနဲ့ "မဝယ်နဲ့" လို့ တားရင် ဝယ်ခွင့် လွတ်တယ်။
+    # (၂) ဈေးကျတာ အတည်ပြုချက် — တစ်ရက်တည်း ဈေးကျတာနဲ့ "ဝယ်သင့်တယ်" လို့
+    #     မပြောဘဲ၊ ဈေးနိမ့်တာ ရက်အနည်းငယ် ဆက်ဖြစ်မှ ဝယ်ဖို့ အကြံပေးတယ်။
+    # (၃) Spread / break-even — ပြန်ရောင်းပြီး အမြတ်ရဖို့ ရောင်းဈေးက ဝယ်ဈေးအထိ
+    #     တက်ရမယ်။
+    # (၄) ၆ လ percentile — ဈေးဟောင်းဆီ ပြန်ကျမယ်လို့ ယူဆလို့ မရဘူးဆိုတာ ပြတယ်။
+    def _chg(vals, days):
+        if len(vals) <= days or not vals[-1 - days]:
+            return None
+        return (vals[-1] - vals[-1 - days]) / vals[-1 - days] * 100
+
+    buys_all = [r["buy"] for r in all_rows]
+    sells_all = [r["sell"] for r in all_rows]
+    chg3m_b, chg6m_b, chg12m_b = _chg(buys_all, 90), _chg(buys_all, 180), _chg(buys_all, 365)
+    chg3m_s, chg6m_s, chg12m_s = _chg(sells_all, 90), _chg(sells_all, 180), _chg(sells_all, 365)
+    win6 = all_rows[-180:] if len(all_rows) >= 180 else all_rows
+    pct6m_b = _rank_pct([r["buy"] for r in win6], today_buy)
+    pct6m_s = _rank_pct([r["sell"] for r in win6], today_sell)
+    spread = today_sell - today_buy
+    spread_pct = (spread / today_buy * 100) if today_buy else 0.0
+    breakeven = today_sell  # ဝယ်သူ ပြန်ရောင်းချိန်မှာ ရောင်းဈေးက ဒီအထိ တက်ရမှ အမြတ်ရမယ်
+    dip_days = sum(1 for r in all_rows[-7:] if r["sell"] < ma30_s)
+    drop1d_s = ((today_sell - sells_all[-2]) / sells_all[-2] * 100) if len(sells_all) >= 2 and sells_all[-2] else 0.0
+    trend_up_s = (chg6m_s is not None and chg6m_s >= 8 and chg3m_s is not None and chg3m_s >= 5)
+    trend_up_b = (chg6m_b is not None and chg6m_b >= 8 and chg3m_b is not None and chg3m_b >= 5)
+
+    notes = []
+    # (၁) လမ်းကြောင်း တက်နေရင် percentile မြင့်နေလည်း "မဝယ်နဲ့" လို့ မတားဘူး — DCA ပြောင်းတယ်
+    if score_s >= 3 and trend_up_s:
+        buyer_action = f"{code} ဈေးမြင့်ပေမယ့် လမ်းကြောင်း တက်နေတယ် — ခွဲဝယ်ပါ (DCA) ⚠️"
+        buyer_color, buyer_bg = "#ef6c00", "#fff3e0"
+        notes.append(f"📈 <b>လမ်းကြောင်း တက်နေတယ်:</b> ဝယ်ဈေး ၃ လအတွင်း {chg3m_s:+.1f}%၊ ၆ လအတွင်း {chg6m_s:+.1f}% တက်ထားတယ်။ "
+                     f"ကျပ်ငွေ တန်ဖိုးကျနေတဲ့ဘက်ကို ဦးတည်နေလို့ ဈေးဟောင်းဆီ ပြန်ကျဖို့ စောင့်နေရင် ဝယ်ခွင့် လွတ်နိုင်တယ်။ "
+                     f"တစ်ခါတည်း အကုန် မဝယ်ဘဲ နည်းနည်းချင်း ခွဲဝယ်ပါ (DCA)။")
+        summary_txt += (f" ဝယ်ယူလိုသူအတွက် — ဈေးမြင့်နေပေမယ့် လမ်းကြောင်း တက်နေတဲ့အတွက် "
+                        f"စောင့်နေရင် ဝယ်ခွင့် လွတ်နိုင်တယ်။ တစ်ခါတည်း အကုန် မဝယ်ဘဲ နည်းနည်းချင်း ခွဲဝယ်ပါ။")
+    # (၄) တစ်နှစ်အတွင်း အများကြီး တက်ထားရင် ဈေးဟောင်းဆီ ပြန်ကျမယ်လို့ ယူဆလို့ မရဘူး
+    if pct_year_s >= 80 and chg12m_s is not None and chg12m_s >= 10:
+        notes.append(f"⚠️ <b>ဈေးဟောင်း ပြန်မရနိုင်ဘူး:</b> ဝယ်ဈေး တစ်နှစ်အတွင်း {chg12m_s:+.1f}% တက်ထားတယ်။ "
+                     f"မူလ ပျမ်းမျှဈေးဟောင်းဆီ ပြန်ကျမယ်လို့ ယူဆလို့ မရဘူး (ငွေကြေးဖောင်းပွမှု / ကျပ်ငွေ တန်ဖိုးကျတာ)။ "
+                     f"၆ လ percentile က {pct6m_s:.1f}% ရှိတယ် — နောက် ၆ လအတွင်းမှာလည်း ဈေးက ဒီအဆင့်မှာပဲ ရှိနေတယ်။")
+    # (၂) ဈေးကျပြီး "ဝယ်သင့်တယ်" လို့ ပြောမယ့်အချိန်မှာ ဈေးကျတာ အတည်ပြုပြီးမှ ဝယ်ပါ
+    if score_s <= -3:
+        if drop1d_s <= -2 and dip_days <= 1:
+            buyer_action = f"{code} ဈေးကျတယ် — ဒါပေမယ့် စောင့်ကြည့်ပါ ⏳"
+            buyer_color, buyer_bg = "#ef6c00", "#fff3e0"
+            notes.append("🔍 <b>ဈေးကျတာ မအတည်ပြုရသေးဘူး:</b> ဒီနေ့ တစ်ရက်တည်း ဈေးအများကြီး ကျသွားတာ — "
+                         "ယာယီ (ဖမ်းဆီးစစ်ဆေးမှု / သတင်း) လား၊ တကယ် ဈေးကျတာလား app က မသိဘူး။ "
+                         "၃ ရက်လောက် ဈေးနိမ့်နေတာ ဆက်ဖြစ်မှ ဝယ်ပါ။ သတင်းကိုပါ ကြည့်ပါ။")
+        else:
+            notes.append("🔍 <b>ဈေးကျတာ သတိထားပါ:</b> ဈေးကျလို့ ဝယ်သင့်တယ်လို့ app က ပြောပေမယ့်၊ "
+                         "အကြောင်းက ယာယီလား (ဖမ်းဆီးစစ်ဆေးမှု / သတင်း)၊ ရေရှည်လား app က မစစ်နိုင်ဘူး။ "
+                         "သတင်းကိုပါ ကြည့်ပြီး ခွဲဝယ်ပါ။")
+
     if a["kind"] == "gold":
         seller_tag = f"🥇 <b>{a['short']} ရောင်းချမည့်သူ</b> (ရွှေလက်ဝယ်ရှိသူ)"
         buyer_tag = f"🥇 <b>{a['short']} ဝယ်ယူမည့်သူ</b> (ရွှေဝယ်ရန်ရည်ရွယ်သူ)"
@@ -451,6 +507,13 @@ def calculate_recommendation(asset):
         "buyer_tag": buyer_tag,
         "summary": summary_txt,
         "total_days": len(all_rows),
+        "chg3m_b": chg3m_b, "chg6m_b": chg6m_b, "chg12m_b": chg12m_b,
+        "chg3m_s": chg3m_s, "chg6m_s": chg6m_s, "chg12m_s": chg12m_s,
+        "pct6m_b": pct6m_b, "pct6m_s": pct6m_s,
+        "spread": spread, "spread_pct": spread_pct, "breakeven": breakeven,
+        "trend_up_s": trend_up_s, "trend_up_b": trend_up_b,
+        "dip_days": dip_days, "drop1d_s": drop1d_s,
+        "notes": notes,
     }
 
 
@@ -1101,6 +1164,14 @@ def index():
     rec = calculate_recommendation(asset)
     rec_box = ""
     if rec:
+        _fmt = lambda v: f"{v:+.1f}%" if v is not None else "—"
+        trend_box = f"""
+<div style="font-size:13px;line-height:1.7;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 12px;margin:8px 0;">
+  <b>📈 လမ်းကြောင်း (၃ လ / ၆ လ အရွေ့):</b> ဝယ်ဈေး {_fmt(rec['chg3m_s'])} / {_fmt(rec['chg6m_s'])} · ရောင်းဈေး {_fmt(rec['chg3m_b'])} / {_fmt(rec['chg6m_b'])}<br>
+  <b>💱 Spread:</b> {rec['spread']:,.0f} {rec['unit']} ({rec['spread_pct']:.2f}%) — ပြန်ရောင်းပြီး အမြတ်ရဖို့ ရောင်းဈေးက <b>{rec['breakeven']:,.0f}</b> အထိ တက်ရမယ် (ဈေး {rec['spread_pct']:.2f}% ထက် မတက်ရင် အမြတ် မကျန်ဘူး)<br>
+  <b>📊 ၆ လ Percentile:</b> ရောင်းသူ {rec['pct6m_b']:.1f}% · ဝယ်သူ {rec['pct6m_s']:.1f}% (၁ နှစ် percentile နဲ့ ယှဉ်ကြည့်ပါ — ၆ လအတွင်း ဈေးက ဒီအဆင့်မှာပဲ ရှိနေရင် ဈေးဟောင်း ပြန်မရနိုင်ဘူး)
+</div>"""
+        notes_box = ("".join(f"<div style='font-size:13px;line-height:1.6;background:#fff3e0;border:1px solid #ffcc80;border-radius:8px;padding:10px 12px;margin:8px 0;'>{n}</div>" for n in rec['notes'])) if rec['notes'] else ""
         rec_box = f"""
 <div style="background:#fafafa;border:2px solid #2196f3;border-radius:12px;padding:16px;margin:15px 0;">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;border-bottom:1px solid #e0e0e0;padding-bottom:8px;">
@@ -1120,6 +1191,8 @@ def index():
     </div>
   </div>
   <p style="margin:8px 0 6px 0;line-height:1.5;color:#333;"><b>သုံးသပ်ချက်:</b> {rec['summary']}</p>
+  {trend_box}
+  {notes_box}
   <div style="font-size:12px;color:#555;background:#fff;padding:8px 12px;border-radius:6px;border:1px solid #eee;">
     <table style="margin:0;font-size:12px;">
       <tr>
@@ -1142,6 +1215,9 @@ def index():
       <tr><td style="text-align:left">တစ်နှစ်တာ Percentile (၃၆၅ ရက်)</td>
           <td>{rec['seller_stats']['pct_year']:.1f}%</td>
           <td>{rec['buyer_stats']['pct_year']:.1f}%</td></tr>
+      <tr><td style="text-align:left">၆ လ Percentile (၁၈၀ ရက်)</td>
+          <td>{rec['pct6m_b']:.1f}%</td>
+          <td>{rec['pct6m_s']:.1f}%</td></tr>
     </table>
   </div>
 </div>
