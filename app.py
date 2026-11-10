@@ -1195,7 +1195,7 @@ details summary::after{{content:' ▾';color:#888}}details[open] summary::after{
 <div class="card"><b>{year} နှစ်ပျမ်းမျှ</b><br>ရောင်းဈေး: <span style="font-size:20px">{yavg:,.0f}</span><br>ဝယ်ဈေး: <span style="font-size:20px">{sell_yavg:,.0f}</span><br><small>{len(rows)} ရက်ဒေတာအပေါ်အခြေခံ</small></div>
 <div class="card"><b>နေ့စဉ်ဈေးဖြည့်</b><br>
 <a class="btn primary" href="/fetch?asset={asset}&year={year}">⚡ ဒီနေ့ဈေး ယူ (MMP)</a>
-<a class="btn" href="/cron/fetch-daily" style="margin-top:6px">⚡ အားလုံး ယူ (All)</a></div>
+<a class="btn" href="/fetch?asset=all&cur={asset}&year={year}" style="margin-top:6px">⚡ အားလုံး ယူ (All)</a></div>
 <div class="card"><b>ကိုယ်တိုင်မှတ်</b>
 <form method="post" action="/add">
 <input type="hidden" name="asset" value="{asset}">
@@ -1232,6 +1232,14 @@ def cron_fetch_daily():
         except Exception as e:
             errs.append(f"{k}: {e}")
     synced = _blob_sync_up()
+
+    # Browser UI မှ ခေါ်ပါက JSON မပြဘဲ မူရင်းစာမျက်နှာဆီ redirect လုပ်ပေးသည်
+    if request.args.get("ui") or "text/html" in request.headers.get("Accept", ""):
+        cur_asset = request.args.get("cur") or "sgd"
+        cur_year = request.args.get("year", date.today().year)
+        msg = f"✓ အားလုံး (၇ မျိုး) ဒေတာ အသစ် ရယူပြီးပါပြီ (Vercel Blob ထဲ အမြဲတမ်း သိမ်းပြီး)"
+        return redirect(url_for("index", asset=cur_asset, year=cur_year, msg=msg))
+
     return {
         "ok": True,
         "date": date.today().isoformat(),
@@ -1245,8 +1253,21 @@ def cron_fetch_daily():
 def do_fetch():
     asset = request.args.get("asset", "sgd")
     year = request.args.get("year", date.today().year)
+    cur = request.args.get("cur") or asset
     if asset == "all":
-        return redirect(url_for("cron_fetch_daily"))
+        ensure_csv()
+        updated = []
+        for k in ASSET_ORDER:
+            try:
+                buy, sell, note, d = fetch_live(k)
+                upsert_day(k, d, round(buy, 2), round(sell, 2), note)
+                updated.append(k)
+            except Exception:
+                pass
+        _blob_sync_up()
+        msg = f"✓ အားလုံး ({len(updated)} မျိုး) ဒေတာ အသစ် ရယူပြီးပါပြီ (Vercel Blob ထဲ အမြဲတမ်း သိမ်းပြီး)"
+        return redirect(url_for("index", asset=cur if cur in ASSETS else "sgd", year=year, msg=msg))
+
     if asset not in ASSETS:
         asset = "sgd"
     try:
