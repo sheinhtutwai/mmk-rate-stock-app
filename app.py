@@ -62,9 +62,18 @@ def asset_title(key):
     return f"{a['name']}"
 
 
+SEED_RATES_CSV = os.path.join(BASE, "seed", "rates_assets.csv")
+
 # ---------- storage ----------
 def ensure_csv():
     if not os.path.exists(CSV_PATH):
+        if os.path.exists(SEED_RATES_CSV):
+            import shutil
+            try:
+                shutil.copyfile(SEED_RATES_CSV, CSV_PATH)
+                return
+            except Exception:
+                pass
         with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
             csv.writer(f).writerow(FIELDS)
 
