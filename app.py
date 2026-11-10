@@ -64,13 +64,72 @@ def asset_title(key):
 
 SEED_RATES_CSV = os.path.join(BASE, "seed", "rates_assets.csv")
 
+# ---------- Vercel Blob Storage Integration ----------
+BLOB_TOKEN = os.environ.get("BLOB_READ_WRITE_TOKEN", "")
+BLOB_CSV_PATHNAME = "rates_assets.csv"
+BLOB_API_BASE = "https://blob.vercel-storage.com"
+
+
+def _blob_sync_down():
+    """Download rates_assets.csv from Vercel Blob if it exists."""
+    if not BLOB_TOKEN:
+        return False
+    try:
+        req = urllib.request.Request(
+            f"{BLOB_API_BASE}/?prefix={BLOB_CSV_PATHNAME}",
+            headers={"Authorization": f"Bearer {BLOB_TOKEN}"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            blobs = data.get("blobs") or []
+            target = next((b for b in blobs if b.get("pathname") == BLOB_CSV_PATHNAME), None)
+            if target and target.get("url"):
+                with urllib.request.urlopen(target["url"], timeout=15) as dresp:
+                    content = dresp.read()
+                    if content and len(content) > 100:
+                        with open(CSV_PATH, "wb") as f:
+                            f.write(content)
+                        return True
+    except Exception as e:
+        print(f"Blob sync down failed: {e}", file=sys.stderr)
+    return False
+
+
+def _blob_sync_up():
+    """Upload CSV_PATH to Vercel Blob to persist updates across instances."""
+    if not BLOB_TOKEN or not os.path.exists(CSV_PATH):
+        return False
+    try:
+        with open(CSV_PATH, "rb") as f:
+            content = f.read()
+        req = urllib.request.Request(
+            f"{BLOB_API_BASE}/{BLOB_CSV_PATHNAME}",
+            data=content,
+            method="PUT",
+        )
+        req.add_header("Authorization", f"Bearer {BLOB_TOKEN}")
+        req.add_header("x-api-version", "7")
+        req.add_header("x-add-random-suffix", "false")
+        req.add_header("content-type", "text/csv")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.status in (200, 201)
+    except Exception as e:
+        print(f"Blob sync up failed: {e}", file=sys.stderr)
+        return False
+
+
 # ---------- storage ----------
 def ensure_csv():
     if not os.path.exists(CSV_PATH):
+        # 1. First try pulling existing persistent file from Vercel Blob
+        if _blob_sync_down():
+            return
+        # 2. Otherwise seed from bundled CSV and upload to Blob
         if os.path.exists(SEED_RATES_CSV):
             import shutil
             try:
                 shutil.copyfile(SEED_RATES_CSV, CSV_PATH)
+                _blob_sync_up()
                 return
             except Exception:
                 pass
@@ -143,6 +202,7 @@ def save_rows(rows):
             w.writerow([r["date"], r["asset"], f"{float(r['buy']):.2f}",
                         f"{float(r['sell']):.2f}", r.get("note", "")])
     os.replace(tmp, CSV_PATH)
+    _blob_sync_up()
 
 
 def upsert_day(asset, day, buy, sell, note="auto"):
@@ -1134,7 +1194,8 @@ details summary::after{{content:' ▾';color:#888}}details[open] summary::after{
 <div class="cards">
 <div class="card"><b>{year} နှစ်ပျမ်းမျှ</b><br>ရောင်းဈေး: <span style="font-size:20px">{yavg:,.0f}</span><br>ဝယ်ဈေး: <span style="font-size:20px">{sell_yavg:,.0f}</span><br><small>{len(rows)} ရက်ဒေတာအပေါ်အခြေခံ</small></div>
 <div class="card"><b>နေ့စဉ်ဈေးဖြည့်</b><br>
-<a class="btn primary" href="/fetch?asset={asset}&year={year}">⚡ ဒီနေ့ဈေး ယူ (MMP)</a></div>
+<a class="btn primary" href="/fetch?asset={asset}&year={year}">⚡ ဒီနေ့ဈေး ယူ (MMP)</a>
+<a class="btn" href="/cron/fetch-daily" style="margin-top:6px">⚡ အားလုံး ယူ (All)</a></div>
 <div class="card"><b>ကိုယ်တိုင်မှတ်</b>
 <form method="post" action="/add">
 <input type="hidden" name="asset" value="{asset}">
@@ -1153,14 +1214,39 @@ options:{{plugins:{{legend:{{display:false}}}}}}}});</script>
 <table><tr><th>နေ့</th><th>ရောင်းဈေး</th><th>ဝယ်ဈေး</th><th>note</th></tr>{recent or '<tr><td colspan=4>ဒေတာမရှိသေး — ဈေးယူ ကိုနှိပ်ပါ</td></tr>'}</table>
 {analytics_html}
 <p><small>ရောင်းဈေး = သင် {a['short']} ရောင်းလျှင် ရမည့်ဈေး။ ဝယ်ဈေး = သင် MMK ပေး၍ {a['short']} ဝယ်လျှင် ပေးရမည့်ဈေး။
-Source: Myanmar Market Price (MMP) API — rates_assets.csv ထဲသိမ်းသည်။</small></p>
+Source: Myanmar Market Price (MMP) API — rates_assets.csv (Vercel Blob) ထဲသိမ်းသည်။</small></p>
 </body></html>"""
+
+
+@app.route("/cron/fetch-daily")
+def cron_fetch_daily():
+    """Daily automated cron job: fetches all currency/gold rates and persists to Vercel Blob."""
+    ensure_csv()
+    updated = []
+    errs = []
+    for k in ASSET_ORDER:
+        try:
+            buy, sell, note, d = fetch_live(k)
+            upsert_day(k, d, round(buy, 2), round(sell, 2), note)
+            updated.append(f"{k}: {d} {buy:,.0f}/{sell:,.0f} ({note})")
+        except Exception as e:
+            errs.append(f"{k}: {e}")
+    synced = _blob_sync_up()
+    return {
+        "ok": True,
+        "date": date.today().isoformat(),
+        "updated": updated,
+        "errors": errs,
+        "blob_synced": synced,
+    }
 
 
 @app.route("/fetch")
 def do_fetch():
     asset = request.args.get("asset", "sgd")
     year = request.args.get("year", date.today().year)
+    if asset == "all":
+        return redirect(url_for("cron_fetch_daily"))
     if asset not in ASSETS:
         asset = "sgd"
     try:

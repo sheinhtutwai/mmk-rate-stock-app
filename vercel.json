@@ -7,6 +7,12 @@
       "config": { "maxDuration": 60 }
     }
   ],
+  "crons": [
+    {
+      "path": "/cron/fetch-daily",
+      "schedule": "30 4 * * *"
+    }
+  ],
   "routes": [
     { "src": "/(.*)", "dest": "app.py" }
   ]
