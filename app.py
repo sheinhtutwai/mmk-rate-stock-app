@@ -2,12 +2,16 @@
 Run: python app.py  ->  http://127.0.0.1:5000
 """
 import csv
+import html
 import json
 import os
 import sys
+import time
 import statistics as st
 import urllib.request
-from datetime import date, datetime, timezone
+import xml.etree.ElementTree as ET
+from datetime import date, datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -1054,6 +1058,82 @@ def stocks():
             "</p></body></html>")
 
 
+# ---------- news (Google News RSS — အခမဲ့၊ key မလို) ----------
+# မြန်မာ ငွေဈေး / ဗဟိုဘဏ် / ရွှေဈေး သတင်း ခေါင်းစဉ်တွေကို Google News RSS ကနေ
+# server-side ဆွဲယူတယ်။ သတင်း အတု မဖန်တီးဘူး — feed ပျက်ရင် [] ပဲ ပြန်ပေးတယ်။
+NEWS_FEEDS = {
+    "currency": ("https://news.google.com/rss/search"
+                 "?q=Myanmar+kyat+OR+Myanmar+exchange+rate+OR+Myanmar+central+bank+OR+Myanmar+inflation"
+                 "&hl=en-US&gl=US&ceid=US:en"),
+    "gold": ("https://news.google.com/rss/search"
+             "?q=Myanmar+gold+price+OR+Myanmar+gold+rate"
+             "&hl=en-US&gl=US&ceid=US:en"),
+}
+NEWS_TTL = 3 * 3600  # ၃ နာရီ cache — စာမျက်နှာ မြန်မြန်ပွင့်ဖို့
+NEWS_MAX_DAYS = 90   # ဒီရက်အတွင်းက သတင်းပဲ ပြတယ် (အဟောင်း မပြဘူး)
+NEWS_MAX_ITEMS = 5
+# Google News ရဲ့ OR query က တခါတလေ မဆိုင်တဲ့ သတင်း ပါလာတတ်လို့
+# ခေါင်းစဉ်မှာ ဒီစကားလုံးတွေ ပါမှ ပြတယ် (ဥပမာ Myanmar အကြောင်း ယေဘုယျ သတင်း မပါဘူး)
+NEWS_KEYWORDS = {
+    "currency": ("kyat", "dollar", "exchange", "central bank", "inflat", "currenc"),
+    "gold": ("gold",),
+}
+_NEWS_CACHE = {}  # kind -> {"at": epoch, "items": [...]}
+
+
+def fetch_currency_news(kind="currency"):
+    """Google News RSS ကနေ သတင်းခေါင်းစဉ် (title + link + ရက်စွဲ + source) ယူတယ်.
+    feed ပျက်ရင် / သတင်းအသစ် မရှိရင် [] ပြန်ပေးတယ် — ဘာမှ အတု မထည့်ဘူး."""
+    now = time.time()
+    hit = _NEWS_CACHE.get(kind)
+    if hit and now - hit["at"] < NEWS_TTL:
+        return hit["items"]
+    items = []
+    try:
+        req = urllib.request.Request(
+            NEWS_FEEDS.get(kind) or NEWS_FEEDS["currency"],
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = resp.read()
+        root = ET.fromstring(data)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=NEWS_MAX_DAYS)
+        for it in root.iter("item"):
+            title = (it.findtext("title") or "").strip()
+            link = (it.findtext("link") or "").strip()
+            pub = (it.findtext("pubDate") or "").strip()
+            source = (it.findtext("source") or "").strip()
+            if not title or not link:
+                continue
+            _keys = NEWS_KEYWORDS.get(kind) or NEWS_KEYWORDS["currency"]
+            if not any(k in title.lower() for k in _keys):
+                continue  # မဆိုင်တဲ့ သတင်း (ဥပမာ Myanmar ဆိုရုံနဲ့ ပါလာတာ) ကို ဖြတ်တယ်
+            # Google News title မှာ " - Source" ပါတတ်တယ် — source သီးသန့် ပြမှာမို့ ဖြတ်တယ်
+            if source and title.endswith(" - " + source):
+                title = title[: -len(" - " + source)].strip()
+            try:
+                dt = parsedate_to_datetime(pub) if pub else None
+            except Exception:
+                dt = None
+            if dt is not None:
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                if dt < cutoff:
+                    continue
+                date_txt = dt.strftime("%d %b %Y")
+            else:
+                date_txt = ""
+            items.append({"title": title, "link": link,
+                          "date": date_txt, "source": source})
+            if len(items) >= NEWS_MAX_ITEMS:
+                break
+    except Exception as e:
+        print(f"News fetch failed ({kind}): {e}", file=sys.stderr)
+        items = []
+    _NEWS_CACHE[kind] = {"at": now, "items": items}
+    return items
+
+
 # ---------- routes ----------
 @app.route("/")
 def index():
@@ -1223,6 +1303,28 @@ def index():
 </div>
 """
 
+    # ---- နောက်ဆုံး သတင်း (stock လိုမျိုး ခေါင်းစဉ်တွေ) ----
+    news_kind = "gold" if a["kind"] == "gold" else "currency"
+    news_items = fetch_currency_news(news_kind)
+    if news_items:
+        _rows = "".join(
+            f"<li style='margin:6px 0;line-height:1.5;'><a href='{html.escape(n['link'], quote=True)}' target='_blank' rel='noopener'>{html.escape(n['title'])}</a>"
+            f"<br><small style='color:#777;'>{html.escape(n['source'])}{(' &middot; ' + n['date']) if n['date'] else ''}</small></li>"
+            for n in news_items)
+        news_box = f"""
+<div style="background:#fff;border:2px solid #4caf50;border-radius:12px;padding:14px 16px;margin:15px 0;">
+  <h3 style="margin:0 0 4px 0;color:#2e7d32;">&#128240; နောက်ဆုံး သတင်း — ငွေဈေး / ဗဟိုဘဏ်</h3>
+  <div style="font-size:12px;color:#777;margin-bottom:6px;">Google News က ဆွဲယူထားတာ (ခေါင်းစဉ်ပဲ ပြထားတယ် — အသေးစိတ်ဖတ်ဖို့ ခေါင်းစဉ်ကို နှိပ်ပါ) &middot; ၃ နာရီတစ်ခါ အသစ်ပြန်ဆွဲတယ်</div>
+  <ul style="margin:0;padding-left:18px;">{_rows}</ul>
+  <div style="font-size:12px;color:#555;margin-top:8px;">&#9888;&#65039; သတင်းက အကြောင်းရင်း (ယာယီလား၊ ရေရှည်လား) ကို ဆုံးဖြတ်ဖို့ အကူအညီပဲ — ခေါင်းစဉ်တစ်ခုတည်းနဲ့ ဝယ်ဖို့ မဆုံးဖြတ်ပါနဲ့။</div>
+</div>"""
+    else:
+        news_box = """
+<div style="background:#fff;border:1px solid #ccc;border-radius:12px;padding:14px 16px;margin:15px 0;">
+  <h3 style="margin:0;color:#555;">&#128240; နောက်ဆုံး သတင်း</h3>
+  <div style="font-size:13px;color:#777;margin-top:6px;">သတင်း မရသေးဘူး — feed ပျက်နေတာ ဒါမှမဟုတ် သတင်းအသစ် မရှိသေးတာပါ။ နောက်မှ ပြန်စစ်ကြည့်ပါ။</div>
+</div>"""
+
     msg = request.args.get("msg")
     banner = (f"<div style='background:#e3f2fd;border:1px solid #90caf9;padding:8px 12px;"
               f"border-radius:8px;margin:10px 0;font-size:14px'>{msg}</div>" if msg else "")
@@ -1266,6 +1368,7 @@ details summary::after{{content:' ▾';color:#888}}details[open] summary::after{
 
 {banner}
 {rec_box}
+{news_box}
 
 <div class="cards">
 <div class="card"><b>{year} နှစ်ပျမ်းမျှ</b><br>ရောင်းဈေး: <span style="font-size:20px">{yavg:,.0f}</span><br>ဝယ်ဈေး: <span style="font-size:20px">{sell_yavg:,.0f}</span><br><small>{len(rows)} ရက်ဒေတာအပေါ်အခြေခံ</small></div>

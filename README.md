@@ -27,6 +27,7 @@ Python 3.10+. No build step.
 | gold + currency reference rates | `data-provider.getmmp.link` | `MMP_API_KEY` env var |
 | currency fallback | OKX USDT/MMK P2P books + `open.er-api.com` FX | none |
 | stock / index closes | Yahoo Finance chart API, 2 years daily | none |
+| currency / gold news headlines | Google News RSS (kyat / CBM / inflation; gold price for gold pages), 3-hour cache | none |
 | charting | Chart.js from jsDelivr | none |
 
 ## Configuration
@@ -75,6 +76,13 @@ percentile-only currency signal:
 * **Mean reversion:** a 6-month percentile is shown next to the 1-year one,
   and when the 1-year percentile is `>= 80%` with a 12-month rise of
   `>= +10%`, a warning says the old mean price may never return.
+* **News:** every currency/gold page shows the latest headlines from Google
+  News RSS (kyat / central bank / inflation for currencies, gold price for
+  gold pages) in a "နောက်ဆုံး သတင်း" box, fetched server-side with an 8s
+  timeout and a 3-hour cache, last 90 days only, title + source + link. The
+  headlines help judge whether a dip is temporary or lasting, but the app
+  still cannot classify a dip by itself — it says so in the UI. If the feed
+  fails, the box says "သတင်း မရသေးဘူး" instead of showing anything made up.
 
 ## Deploy (Vercel)
 
