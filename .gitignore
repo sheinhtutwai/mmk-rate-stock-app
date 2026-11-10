@@ -1,0 +1,8 @@
+rates_assets.csv
+stock_cache.json
+*.log
+*.session
+__pycache__/
+*.pyc
+.venv/
+.vercel/
