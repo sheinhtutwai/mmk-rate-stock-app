@@ -614,10 +614,10 @@ def build_analytics(all_rows, a, target=None, asset_key="sgd", target_b=None):
         f"ဈေးတွေထက် မြင့်နေတဲ့ ရာခိုင်နှုန်းနဲ့ တွက်ထားသည် (အနာဂတ်ဒေတာ မပါအောင်)။</p>"
         f"<p style='font-size:13px;margin:8px 0 2px'>🥇 <b>ရောင်းဈေး (seller)</b> — ဒီနေ့ percentile "
         f"<b>{cur_ps:.1f}%</b> → စစ်ထုတ်ကာလ <b>{lo_ps:.0f}%–{hi_ps:.0f}%</b></p>"
-        f"<div style='overflow-x:auto'><table>{cond_head}{rows_s}</table></div>"
+        f"<div class='tscroll wide'><table>{cond_head}{rows_s}</table></div>"
         f"<p style='font-size:13px;margin:14px 0 2px'>🛒 <b>ဝယ်ဈေး (buyer)</b> — ဒီနေ့ percentile "
         f"<b>{cur_pb:.1f}%</b> → စစ်ထုတ်ကာလ <b>{lo_pb:.0f}%–{hi_pb:.0f}%</b></p>"
-        f"<div style='overflow-x:auto'><table>{cond_head}{rows_b}</table></div>"
+        f"<div class='tscroll wide'><table>{cond_head}{rows_b}</table></div>"
         f"{thin_note}{chg_note}"
         f"<p style='font-size:12px;color:#888;margin:8px 0 0'>Percentile = ပြီးခဲ့ ၃၆၅ ရက်အတွင်း "
         f"ဈေးတွေထက် မြင့်နေတဲ့ ရာခိုင်နှုန်း (point-in-time)။ ထိပ်က 'တစ်နှစ်တာ Percentile' "
@@ -671,7 +671,7 @@ def build_analytics(all_rows, a, target=None, asset_key="sgd", target_b=None):
     box("📅 ဘယ်နေ့ လဲလှယ်ရ ဈေးအကောင်းဆုံးလဲ (ရောင်းသူအတွက်)",
         f"<p style='font-size:13px;color:#555;margin:0 0 8px'>ဈေးတက်နေတဲ့ လမ်းကြောင်းကို ချေဖျက်ဖို့ "
         f"၃၀ ရက် ပျမ်းမျှနှင့် ကွာချင်း % ကို အသုံးပြုထားသည်။ + ဖြစ်ရင် အဲ့ရက်တွေမှာ ဈေးပိုမြင့်လေ့ရှိ။</p>"
-        f"<table><tr><th>အပတ်စဉ်ရက်</th><th>ပျမ်းမျှ ကွာချင်း</th><th>ရက်</th></tr>{wd_rows}</table>"
+        f"<div class='tscroll'><table><tr><th>အပတ်စဉ်ရက်</th><th>ပျမ်းမျှ ကွာချင်း</th><th>ရက်</th></tr>{wd_rows}</table></div>"
         f"<p style='font-size:13px;margin:8px 0 0'>ရက်စွဲအကောင်းဆုံး: <b>{best.rstrip(' · ')}</b><br>"
         f"အဆိုးဆုံး: <b>{worst.rstrip(' · ')}</b></p>")
 
@@ -700,7 +700,7 @@ def build_analytics(all_rows, a, target=None, asset_key="sgd", target_b=None):
     box("🗓️ လ × နှစ် ရာသီအလိုက် ဈေးဇယား (Heatmap)",
         "<p style='font-size:13px;color:#555;margin:0 0 8px'>အနီ = အဲ့နှစ်ပျမ်းမျှထက် မြင့်၊ အစိမ်း = နိမ့်။ "
         "အနီရင့်ရင် ပိုမြင့်။</p>"
-        f"<div style='overflow-x:auto'><table style='font-size:12px'><tr><th>နှစ်</th>{head}</tr>{body}</table></div>")
+        f"<div class='tscroll xwide'><table style='font-size:12px'><tr><th>နှစ်</th>{head}</tr>{body}</table></div>")
 
     # 5. Volatility
     chg = [(buys[i] - buys[i - 1]) / buys[i - 1] * 100
@@ -723,8 +723,8 @@ def build_analytics(all_rows, a, target=None, asset_key="sgd", target_b=None):
         f"<p style='font-size:13px;color:#555;margin:0 0 8px'>နေ့စဉ် ရောင်းဈေး ပြောင်းလဲ % ရဲ့ "
         f"standard deviation။ ကြီးရင် ဈေးခုန်တတ်တဲ့ လ။</p>"
         f"<div style='display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start'>"
-        f"<table style='flex:1;min-width:220px'><tr><th>လ</th><th>Volatility</th><th>ရက်</th></tr>{vol_rows}</table>"
-        f"<table style='flex:1;min-width:220px'><tr><th>အကြီးမားဆုံး တစ်ရက်ပြောင်းလဲ</th><th>%</th></tr>{mv_rows}</table></div>")
+        f"<div class='tscroll' style='flex:1;min-width:220px'><table><tr><th>လ</th><th>Volatility</th><th>ရက်</th></tr>{vol_rows}</table></div>"
+        f"<div class='tscroll' style='flex:1;min-width:220px'><table><tr><th>အကြီးမားဆုံး တစ်ရက်ပြောင်းလဲ</th><th>%</th></tr>{mv_rows}</table></div></div>")
 
     # 6. Percentile band chart (နောက်ဆုံး ၁ နှစ်)
     start = max(0, n - 365)
@@ -812,7 +812,7 @@ def build_analytics(all_rows, a, target=None, asset_key="sgd", target_b=None):
                         f"<td>{buys[-1] - buys[i]:+,.0f} ({ch:+.1f}%)</td></tr>")
     box("🔁 မကြာသေးမီ / မနှစ်က ဈေးနှင့် နှိုင်းယှဉ်",
         f"<p style='font-size:13px;color:#555;margin:0 0 8px'>လက်ရှိ {last_d} ရောင်းဈေး {buys[-1]:,.0f} နှင့် နှိုင်းယှဉ်။</p>"
-        f"<table><tr><th>ကာလ</th><th>ရက်စွဲ</th><th>ဈေး</th><th>ကွာခြင်း</th></tr>{''.join(comp)}</table>")
+        f"<div class='tscroll'><table><tr><th>ကာလ</th><th>ရက်စွဲ</th><th>ဈေး</th><th>ကွာခြင်း</th></tr>{''.join(comp)}</table></div>")
 
     return ("<h3 style='margin-top:24px'>🔍 ထပ်ဆောင်း ခွဲခြမ်းစိတ်ဖြာမှုများ</h3>"
             + "".join(parts)
@@ -960,14 +960,25 @@ def stock_verdict(pct):
     return "ဝယ်သင့်တယ် (ဈေးနိမ့်)", "#1b5e20", "၁ နှစ်အတွင်း အနိမ့်ပိုင်း"
 
 
-STOCK_CSS = ("body{font-family:sans-serif;max-width:1000px;margin:20px auto;padding:0 12px}"
+STOCK_CSS = ("*{box-sizing:border-box}"
+             "body{font-family:sans-serif;max-width:1000px;margin:20px auto;padding:0 12px;font-size:16px;line-height:1.6;overflow-x:hidden}"
              "table{border-collapse:collapse;width:100%;margin-top:10px}"
              "td,th{border:1px solid #ddd;padding:8px;text-align:center;font-size:14px}"
+             ".tscroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:10px 0}"
+             ".tscroll table{margin-top:0}"
              ".num{text-align:right}.badge{display:inline-block;padding:3px 10px;"
              "border-radius:12px;color:#fff;font-size:12px;white-space:nowrap}"
              ".menu a{display:inline-flex;align-items:center;justify-content:center;"
              "height:38px;padding:0 14px;border-radius:19px;border:1px solid #bbb;"
-             "text-decoration:none;color:#333;font-size:13px}")
+             "text-decoration:none;color:#333;font-size:13px}"
+             "@media (max-width:640px){"
+             "body{padding:0 10px}"
+             "h2{font-size:20px;line-height:1.4}"
+             "td,th{font-size:13px;padding:6px 5px}"
+             ".menu a{height:44px;font-size:14px;padding:0 16px}"
+             ".tscroll::after{content:'⟵ ဘေးတိုက်လှိမ့်ကြည့်နိုင်ပါတယ် ⟶';display:block;text-align:right;font-size:11px;color:#888;padding-top:2px}"
+             "input,select,button{font-size:16px;min-height:44px}"
+             "}")
 
 
 @app.route("/stocks")
@@ -1047,7 +1058,7 @@ def stocks():
             "ဈေး ဘယ်လောက် ရွေ့ခဲ့လဲ (သမိုင်း)။ "
             "<span style='color:#ef6c00'>⚠ = နမူနာ ၃၀ ရက်အောက် — မယုံနဲ့၊ ခန့်မှန်းချေသာ</span>။</p>"
             f"{err_box}{stamp}"
-            "<div style='overflow-x:auto'><table><tr><th>Stock / Index</th><th>ဈေး</th>"
+            "<div class='tscroll'><table><tr><th>Stock / Index</th><th>ဈေး</th>"
             "<th>မနေ့ကနေ ပြောင်း</th><th>၁ နှစ် Percentile</th>"
             "<th>နောက် ၃၀ ရက် ပျမ်းမျှ</th><th>နောက် ၉၀ ရက် ပျမ်းမျှ</th>"
             "<th>အကြံပြုချက်</th></tr>"
@@ -1274,7 +1285,7 @@ def index():
   {trend_box}
   {notes_box}
   <div style="font-size:12px;color:#555;background:#fff;padding:8px 12px;border-radius:6px;border:1px solid #eee;">
-    <table style="margin:0;font-size:12px;">
+    <div class="tscroll wide"><table style="margin:0;font-size:12px;">
       <tr>
         <th style="text-align:left">ကိန်းဂဏန်း</th>
         <th>ရောင်းသူ<br><small>(သင် {a['short']} ရောင်း → ရမည့်ဈေး)</small></th>
@@ -1298,7 +1309,7 @@ def index():
       <tr><td style="text-align:left">၆ လ Percentile (၁၈၀ ရက်)</td>
           <td>{rec['pct6m_b']:.1f}%</td>
           <td>{rec['pct6m_s']:.1f}%</td></tr>
-    </table>
+    </table></div>
   </div>
 </div>
 """
@@ -1334,10 +1345,15 @@ def index():
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{a['name']}</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>body{{font-family:sans-serif;max-width:900px;margin:20px auto;padding:0 12px}}
+<style>*{{box-sizing:border-box}}
+body{{font-family:sans-serif;max-width:900px;margin:20px auto;padding:0 12px;font-size:16px;line-height:1.6;overflow-x:hidden}}
 .cards{{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}}
 .card{{flex:1;min-width:180px;border:1px solid #ddd;border-radius:10px;padding:12px}}
 table{{border-collapse:collapse;width:100%;margin-top:10px}}td,th{{border:1px solid #ddd;padding:8px;text-align:center}}
+.tscroll{{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:10px 0}}
+.tscroll table{{margin-top:0}}
+.tscroll.wide table{{min-width:560px}}
+.tscroll.xwide table{{min-width:680px}}
 .btn{{display:inline-block;padding:8px 14px;border-radius:8px;border:1px solid #333;text-decoration:none;color:#000;margin:4px 4px 4px 0}}
 .btn.primary{{background:#111;color:#fff}}
 .menu{{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px 0}}
@@ -1345,7 +1361,19 @@ table{{border-collapse:collapse;width:100%;margin-top:10px}}td,th{{border:1px so
 .menu a.on{{background:#1565c0;color:#fff;border-color:#1565c0}}
 details{{margin:8px 0}}details summary{{list-style:none}}details summary::-webkit-details-marker{{display:none}}
 details summary::after{{content:' ▾';color:#888}}details[open] summary::after{{content:' ▴'}}
-#band{{max-height:260px}}</style></head><body>
+#band{{max-height:260px}}
+@media (max-width:640px){{
+body{{padding:0 10px}}
+h2{{font-size:20px;line-height:1.4}}h3{{font-size:17px;line-height:1.4}}
+td,th{{padding:6px 5px;font-size:13px}}
+.menu a{{height:44px;width:auto;flex:1 1 30%;min-width:96px;font-size:14px}}
+.btn{{padding:12px 16px;font-size:15px;min-height:44px}}
+.card{{flex:1 1 100%;min-width:0}}
+details summary{{font-size:16px}}
+input,select,button{{font-size:16px;min-height:44px}}
+.tscroll::after{{content:'⟵ ဘေးတိုက်လှိမ့်ကြည့်နိုင်ပါတယ် ⟶';display:block;text-align:right;font-size:11px;color:#888;padding-top:2px}}
+canvas{{max-width:100%}}
+}}</style></head><body>
 <h2>{a['flag']}{a['name']} — {year} : နှစ်ပျမ်းမျှထက် ဘယ်လတက်/ကျ?</h2>
 
 <div class="menu">
@@ -1379,18 +1407,18 @@ details summary::after{{content:' ▾';color:#888}}details[open] summary::after{
 <form method="post" action="/add">
 <input type="hidden" name="asset" value="{asset}">
 <input type="date" name="d" value="{date.today().isoformat()}" required><br><br>
-<input name="buy" placeholder="ရောင်းဈေး ({unit})" required style="width:150px">
-<input name="sell" placeholder="ဝယ်ဈေး" style="width:100px">
-<button>သိမ်း</button></form></div></div>
+<input name="buy" placeholder="ရောင်းဈေး ({unit})" required style="width:calc(50% - 4px);max-width:160px">
+<input name="sell" placeholder="ဝယ်ဈေး" style="width:calc(50% - 4px);max-width:120px">
+<button style="min-height:44px;padding:8px 18px;margin-top:8px">သိမ်း</button></form></div></div>
 <canvas id="c" height="110"></canvas>
 <script>new Chart(document.getElementById('c'),{{type:'bar',
 data:{{labels:{labels},datasets:[{{data:{vals_js},backgroundColor:{colors}}},
 {{type:'line',label:'နှစ်ပျမ်းမျှ',data:Array(12).fill({round(yavg,1)}),borderColor:'#111',pointRadius:0}}]}},
 options:{{plugins:{{legend:{{display:false}}}}}}}});</script>
 <h3>လအလိုက် (ရောင်းဈေး အခြေခံ — {unit})</h3>
-<table><tr><th>လ</th><th>လပျမ်းမျှ</th><th>မှတ်တမ်းရက်</th><th>နှစ်ပျမ်းမျှနှင့်ကွာခြားချက်</th><th>အခြေအနေ</th></tr>{table}</table>
+<div class="tscroll wide"><table><tr><th>လ</th><th>လပျမ်းမျှ</th><th>မှတ်တမ်းရက်</th><th>နှစ်ပျမ်းမျှနှင့်ကွာခြားချက်</th><th>အခြေအနေ</th></tr>{table}</table></div>
 <h3>နောက်ဆုံးမှတ်တမ်းများ</h3>
-<table><tr><th>နေ့</th><th>ရောင်းဈေး</th><th>ဝယ်ဈေး</th><th>note</th></tr>{recent or '<tr><td colspan=4>ဒေတာမရှိသေး — ဈေးယူ ကိုနှိပ်ပါ</td></tr>'}</table>
+<div class="tscroll"><table><tr><th>နေ့</th><th>ရောင်းဈေး</th><th>ဝယ်ဈေး</th><th>note</th></tr>{recent or '<tr><td colspan=4>ဒေတာမရှိသေး — ဈေးယူ ကိုနှိပ်ပါ</td></tr>'}</table></div>
 {analytics_html}
 <p><small>ရောင်းဈေး = သင် {a['short']} ရောင်းလျှင် ရမည့်ဈေး။ ဝယ်ဈေး = သင် MMK ပေး၍ {a['short']} ဝယ်လျှင် ပေးရမည့်ဈေး။
 Source: Myanmar Market Price (MMP) API — rates_assets.csv (Vercel Blob) ထဲသိမ်းသည်။</small></p>
