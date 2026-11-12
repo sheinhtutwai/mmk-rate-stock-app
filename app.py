@@ -697,7 +697,7 @@ def build_analytics(all_rows, a, target=None, asset_key="sgd", target_b=None):
                   else f"rgba(46,125,50,{0.12 + 0.5 * inten:.2f})")
             cells += f"<td style='background:{bg}' title='{dv:+.1f}%'>{mv:,.0f}</td>"
         body += f"<tr><th>{y}</th>{cells}</tr>"
-    box("🗓️ လ × နှစ် ရာသီအလိုက် ဈေးဇယား (Heatmap)",
+    box(f"🗓️ {a['name']} · လ × နှစ် ရာသီအလိုက် ဈေးဇယား (Heatmap)",
         "<p style='font-size:13px;color:#555;margin:0 0 8px'>အနီ = အဲ့နှစ်ပျမ်းမျှထက် မြင့်၊ အစိမ်း = နိမ့်။ "
         "အနီရင့်ရင် ပိုမြင့်။</p>"
         f"<div class='tscroll xwide'><table style='font-size:12px'><tr><th>နှစ်</th>{head}</tr>{body}</table></div>")
