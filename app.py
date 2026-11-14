@@ -27,8 +27,8 @@ DATA_DIR = (os.environ.get("DATA_DIR")
             or ("/tmp" if os.environ.get("VERCEL") else BASE))
 try:
     os.makedirs(DATA_DIR, exist_ok=True)
-except Exception:
-    pass
+except Exception as e:
+    print(f"Could not create DATA_DIR {DATA_DIR}: {e}", file=sys.stderr)
 CSV_PATH = os.path.join(DATA_DIR, "rates_assets.csv")
 FIELDS = ["date", "asset", "buy", "sell", "note"]
 
@@ -135,8 +135,8 @@ def ensure_csv():
                 shutil.copyfile(SEED_RATES_CSV, CSV_PATH)
                 _blob_sync_up()
                 return
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Seed CSV copy failed: {e}", file=sys.stderr)
         with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
             csv.writer(f).writerow(FIELDS)
 
@@ -878,8 +878,10 @@ def load_stock_cache():
     try:
         with open(STOCK_CACHE, encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
-        pass
+    except FileNotFoundError:
+        pass  # first run — no cache yet, seed fallback below is expected
+    except Exception as e:
+        print(f"Stock cache load failed: {e} — falling back to seed", file=sys.stderr)
     # first run on a fresh host: start from the bundled seed prices, if any
     try:
         os.makedirs(DATA_DIR, exist_ok=True)
@@ -1464,15 +1466,25 @@ def do_fetch():
     if asset == "all":
         ensure_csv()
         updated = []
+        failed = []
         for k in ASSET_ORDER:
             try:
                 buy, sell, note, d = fetch_live(k)
                 upsert_day(k, d, round(buy, 2), round(sell, 2), note)
                 updated.append(k)
-            except Exception:
-                pass
+            except Exception as e:
+                failed.append(f"{k} ({e})")
+                print(f"Fetch failed ({k}): {e}", file=sys.stderr)
         _blob_sync_up()
-        msg = f"✓ အားလုံး ({len(updated)} မျိုး) ဒေတာ အသစ် ရယူပြီးပါပြီ (Vercel Blob ထဲ အမြဲတမ်း သိမ်းပြီး)"
+        if not failed:
+            msg = f"✓ အားလုံး ({len(updated)} မျိုး) ဒေတာ အသစ် ရယူပြီးပါပြီ (Vercel Blob ထဲ အမြဲတမ်း သိမ်းပြီး)"
+        elif updated:
+            msg = (
+                f"⚠ {len(updated)} မျိုး ရပြီး၊ {len(failed)} မျိုး မရပါ: "
+                + ", ".join(failed)
+            )
+        else:
+            msg = "✗ ဒေတာ တစ်ခုမှ မရပါ: " + ", ".join(failed)
         return redirect(url_for("index", asset=cur if cur in ASSETS else "sgd", year=year, msg=msg))
 
     if asset not in ASSETS:
